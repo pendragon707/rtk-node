@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'camera_lan_stream'
+package_name = 'cv_basics'
 
 setup(
     name=package_name,
@@ -14,12 +14,13 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='pentagon',
-    maintainer_email='pentagon@todo.todo',
+    maintainer_email='alex-cvc@mail.ru',
     description='TODO: Package description',
-    license='Apache-2.0',
+    license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'img_subscriber = cv_basics.webcam_pub:main',
         ],
     },
 )
