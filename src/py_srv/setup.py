@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'cv_basics'
+package_name = 'py_srv'
 
 setup(
     name=package_name,
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'img_subscriber = cv_basics.webcam_sub:main',
+            'service = py_srv.py_srv:main',
         ],
     },
 )
