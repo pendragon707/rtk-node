@@ -1,15 +1,10 @@
-# Basic ROS 2 program to subscribe to real-time streaming 
-# video from your built-in webcam
-# Author:
-# - Addison Sears-Collins
-# - https://automaticaddison.com
-  
 # Import the necessary libraries
 import rclpy # Python library for ROS 2
 from rclpy.node import Node # Handles the creation of nodes
 from sensor_msgs.msg import Image # Image is the message type
 from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import cv2 # OpenCV library
+from req_res_str_service.srv import ReqRes
  
 class ImageSubscriber(Node):
   """
@@ -30,9 +25,16 @@ class ImageSubscriber(Node):
       self.listener_callback, 
       10)
     self.subscription # prevent unused variable warning
+    self.srv = self.create_service(ReqRes, 'cam_service', self.cam_serv_callback)
       
     # Used to convert between ROS and OpenCV images
     self.br = CvBridge()
+
+  def cam_serv_callback(self, request, response):
+      response.res = "OK"    #### РЕЗУЛЬТАТ КОМПЬЮТЕРНОГО ЗРЕНИЯ ПОМЕЩАТь СЮДА
+      self.get_logger().info(f"{request.req}")
+
+      return response
    
   def listener_callback(self, data):
     """

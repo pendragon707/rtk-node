@@ -8,9 +8,9 @@ class MinimalService(Node):
 
     def __init__(self):
         super().__init__('minimal_service')
-        self.srv = self.create_service(ReqRes, 'cam_service', self.add_two_ints_callback)
+        self.srv = self.create_service(ReqRes, 'cam_service', self.cam_serv_callback)
 
-    def add_two_ints_callback(self, request, response):
+    def cam_serv_callback(self, request, response):
         response.res = "OK"
         self.get_logger().info(f"{request.req}")
 
