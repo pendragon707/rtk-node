@@ -12,7 +12,7 @@ class MinimalService(Node):
 
     def cam_serv_callback(self, request, response):
         response.res = "OK"
-        self.get_logger().info(f"{request.req}")
+        # self.get_logger().info(f"{request.req}")
 
         return response
 

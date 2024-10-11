@@ -35,48 +35,55 @@ class ImageSubscriber(Node):
       
     # Used to convert between ROS and OpenCV images
     self.br = CvBridge()
-    self.detector = Detector()
+    self.detector = Detector()    
+
+    self.last_images = [] # 20 last images
 
   def cam_serv_callback(self, request, response):
 
-      if "aruco" in self.detected_objects.keys():
-          print(f"Обнаружен Aruco-маркер на расстоянии = {self.detected_objects['aruco']}")
-          self.get_logger().info(f"Обнаружен Aruco-маркер на расстоянии = {self.detected_objects['aruco']}")
-          if self.detected_objects["aruco"] < self.config.dist_stop:
-              print(f"STOP")
+      self.get_logger().debug(f"req, {request}, {type(request)}")
+
+      sonar_data = request.rstrip() # [dist1, dist2, dist3]
+
+      detected_objects = self.detector.get_objects(current_frame)
+      self.get_logger().debug(detected_objects)
+
+      if "traffic_light" in detected_objects.keys():          
+          self.get_logger().info(f"Обнаружен красный сигнал светофора на расстоянии = {detected_objects['traffic_light']}")
+          if detected_objects["traffic_light"] < 20:              
               self.get_logger().info(f"STOP")
               response.res = "STOP"
+          else:
+              if len( detected_objects.keys() ) > 0:
+                nearest_sign = min(detected_objects, key=detected_objects.get)
+
+                response.res = nearest_sign
+
+      if "aruco" in detected_objects.keys():
+          print(f"Обнаружен Aruco-маркер на расстоянии = {detected_objects['aruco']}")
+          self.get_logger().info(f"Обнаружен Aruco-маркер на расстоянии = {detected_objects['aruco']}")
+          # if detected_objects["aruco"] < 20:              
+          #     self.get_logger().info(f"STOP")
+          #     response.res = "STOP"              
+
+      if "left" in detected_objects.keys():                
+          print(f"Обнаружен знак Поворот Налево на расстоянии = {detected_objects['left']}")
+          # if detected_objects["left"] < 30:              
+          #     self.get_logger().info(f"LEFT")
+          #     response.res = "LEFT"
               
-
-      if "left" in self.detected_objects.keys():                
-          print(f"Обнаружен знак Поворот Налево на расстоянии = {self.detected_objects['left']}")
-          if self.detected_objects["left"] < self.config.dist_turn:
-              print(f"LEFT")
-
-              response.res = "LEFT"
+      if "right" in detected_objects.keys():
+          print(f"Обнаружен знак Поворот Направо на расстоянии = {detected_objects['right']}")
+          # if detected_objects["right"] < 30:             
+          #     self.get_logger().info(f"RIGHT")
+          #     response.res = "RIGHT"
               
-      if "right" in self.detected_objects.keys():
-          print(f"Обнаружен знак Поворот Налево на расстоянии = {self.detected_objects['right']}")
-          if self.detected_objects["right"] < self.config.dist_turn:
-              print(f"RIGHT")
-              self.get_logger().info(f"RIGHT")
-              response.res = "RIGHT"
-              
-      if "forward" in self.detected_objects.keys():
-          print(f"Обнаружен знак Движение Прямо на расстоянии = {self.detected_objects['forward']}")
-          # print(f"FORWARD")
-          response.res = "FORWARD"
-          
+      if "forward" in detected_objects.keys():
+          print(f"Обнаружен знак Движение Прямо на расстоянии = {detected_objects['forward']}")
+          # self.get_logger().info(f"FORWARD")
+          # response.res = "FORWARD"          
 
-      if "traffic_light" in self.detected_objects.keys():
-          print(f"Обнаружен красный сигнал светофора на расстоянии = {self.detected_objects['traffic_light']}")
-          self.get_logger().info(f"Обнаружен красный сигнал светофора на расстоянии = {self.detected_objects['traffic_light']}")
-          if self.detected_objects["traffic_light"] < self.config.dist_stop:
-              print(f"STOP")
-              self.get_logger().info(f"STOP")
-              response.res = "STOP"
-
-     # response.res = "OK"    #### РЕЗУЛЬТАТ КОМПЬЮТЕРНОГО ЗРЕНИЯ ПОМЕЩАТь СЮДА
+     
       self.get_logger().info(f"{request.req}")
 
       return response
@@ -86,20 +93,18 @@ class ImageSubscriber(Node):
     Callback function.
     """
     # Display the message on the console
-    self.get_logger().info('Receiving video frame')
+    # self.get_logger().info('Receiving video frame')
  
     # Convert ROS Image message to OpenCV image
-    current_frame = self.br.imgmsg_to_cv2(data)
-
-    current_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2RGB)   # ???
+    current_frame = self.br.imgmsg_to_cv2(data)    
     
+   
+    self.last_images.append( current_frame )
+    if len(self.last_images) > 20:
+      self.last_images.pop(0)
+
     # Display image
-    cv2.imshow("camera", current_frame)    
-
-    self.get_logger().info("NONE!")
-    print("NONE!")
-
-    self.detected_objects = self.detector.get_objects(current_frame)
+    cv2.imshow("camera", cv2.cvtColor(current_frame, cv2.COLOR_BGR2RGB))    
     
     cv2.waitKey(1)
   

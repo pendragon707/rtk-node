@@ -9,14 +9,16 @@ import time
 
 from cv_basics.signs import Signs
 from cv_basics.config import DetectorConfig
+from cv_basics.detect_signs import DetectTrafficSign
 from cv_basics.utils import get_dominant_color, get_frame, resize, my_estimatePoseSingleMarkers
 
 class Detector:
 
     def __init__(self):
-        self.config = DetectorConfig()      
+        self.config = DetectorConfig() 
+        self.sign_detector = DetectTrafficSign()        
 
-        self.dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_ARUCO_ORIGINAL)
+        self.dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_250)
         self.parameters =  cv2.aruco.DetectorParameters()
         self.detector = cv2.aruco.ArucoDetector(self.dictionary, self.parameters)        
 
@@ -74,17 +76,22 @@ class Detector:
                 cv2.circle(cimg, (i[0], i[1]), i[2], (0, 255, 0), 2)
                 cv2.circle(cimg, (i[0], i[1]), 2, (0, 0, 255), 3)
 
-            cv2.imshow('detected circles', cimg)
-            cv2.imshow('res', res)
+            # cv2.imshow('detected circles', cimg)
+            # cv2.imshow('res', res)
             return 20 # TEMP                        
             
-        cv2.imshow('detected circles', cimg)
-        cv2.imshow('res', res)
+        # cv2.imshow('detected circles', cimg)
+        # cv2.imshow('res', res)
         return None    
 
 
-    def detect_traffic_sign(self, image) -> dict[str, float]:
-        return {}  # -> {"left": [3.1, 5.4], "right": 7.1}
+    def detect_traffic_sign(self, image, target_size = 340) -> dict[str, float]:        
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert to RGB
+        image = cv2.resize(image, target_size)  # Resize to target size
+        image = image / 255.0  # Normalize pixel values to [0, 1]
+
+        output = self.sign_detector.predict( image, self.config.focal_length, self.config.traffic_sign_perimeter )
+        return output  # -> {"left": [3.1, 5.4], "right": 7.1}
                                     
 
     def detect_road_line(self):
@@ -102,12 +109,12 @@ class Detector:
         # image = np.transpose(image, [2, 0, 1])        
 
         markerCorners, markerIds, rejectedCandidates = self.detector.detectMarkers(frame)
-        if markerIds:            
+        if markerIds is not None:            
             # rvecs, tvecs, trash = my_estimatePoseSingleMarkers(markerCorners, 5.3, newcameramtx, dist)
             # distance = math.sqrt(tvecs[0][0]**2 + tvecs[0][1]**2 + tvecs[0][2]**2)
 
             aruco_perimeter = cv2.arcLength(markerCorners[0], True)
-            bad_distance =  (2*(self.config.aruco_w + self.config.aruco_h)*self.config.focal) / aruco_perimeter
+            bad_distance =  (self.config.aruco_perimeter*self.config.focal_length) / aruco_perimeter
 
             # for idx in range(len(markerIds)):
             #     if draw:
@@ -118,7 +125,7 @@ class Detector:
                 # cv2.aruco.drawDetectedMarkers(dst, markerCorners, markerIds)        
                 # cv2.imshow('detect', dst)
                 cv2.aruco.drawDetectedMarkers(image, markerCorners, markerIds)                       
-                cv2.imshow('detect', image)
+                # cv2.imshow('detect', image)
 
             return bad_distance
         return None
