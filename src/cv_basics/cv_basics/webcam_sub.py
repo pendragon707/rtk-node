@@ -37,71 +37,86 @@ class ImageSubscriber(Node):
     self.br = CvBridge()
     self.detector = Detector()    
 
-    self.last_images = [] # 20 last images
+    self.last_image = None # 1 last image        
+    self.last_detected_sign = "forward"
+    self.detected_traffic_light = False
 
   def cam_serv_callback(self, request, response):
 
-      self.get_logger().debug(f"req, {request}, {type(request)}")
-
-      sonar_data = request.rstrip() # [dist1, dist2, dist3]
-
-      detected_objects = self.detector.get_objects(current_frame)
-      self.get_logger().debug(detected_objects)
-
-      if "traffic_light" in detected_objects.keys():          
-          self.get_logger().info(f"Обнаружен красный сигнал светофора на расстоянии = {detected_objects['traffic_light']}")
-          if detected_objects["traffic_light"] < 20:              
-              self.get_logger().info(f"STOP")
-              response.res = "STOP"
-          else:
-              if len( detected_objects.keys() ) > 0:
-                nearest_sign = min(detected_objects, key=detected_objects.get)
-
-                response.res = nearest_sign
-
-      if "aruco" in detected_objects.keys():
-          print(f"Обнаружен Aruco-маркер на расстоянии = {detected_objects['aruco']}")
-          self.get_logger().info(f"Обнаружен Aruco-маркер на расстоянии = {detected_objects['aruco']}")
-          # if detected_objects["aruco"] < 20:              
-          #     self.get_logger().info(f"STOP")
-          #     response.res = "STOP"              
-
-      if "left" in detected_objects.keys():                
-          print(f"Обнаружен знак Поворот Налево на расстоянии = {detected_objects['left']}")
-          # if detected_objects["left"] < 30:              
-          #     self.get_logger().info(f"LEFT")
-          #     response.res = "LEFT"
-              
-      if "right" in detected_objects.keys():
-          print(f"Обнаружен знак Поворот Направо на расстоянии = {detected_objects['right']}")
-          # if detected_objects["right"] < 30:             
-          #     self.get_logger().info(f"RIGHT")
-          #     response.res = "RIGHT"
-              
-      if "forward" in detected_objects.keys():
-          print(f"Обнаружен знак Движение Прямо на расстоянии = {detected_objects['forward']}")
-          # self.get_logger().info(f"FORWARD")
-          # response.res = "FORWARD"          
-
-     
       self.get_logger().info(f"{request.req}")
 
+      # sonar_data = request.req.rstrip() # [dist1, dist2, dist3]
+
+      detected_objects = self.detector.get_objects(self.last_image)
+    #   self.get_logger().info(detected_objects)
+
+      if len(detected_objects.keys()) == 0:
+        #   self.get_logger().info(f"No object detected")          
+          response.res = "NO"
+          return response
+
+      if "forward" in detected_objects.keys():
+          response.res = "forward"
+          #self.get_logger().info(f"Обнаружен знак Движение Прямо на расстоянии = {detected_objects['forward']}")          
+
+      if "left" in detected_objects.keys():    
+          response.res = "left"            
+        #   self.get_logger().info(f"Обнаружен знак Поворот Налево на расстоянии = {detected_objects['left']}")          
+     
+      if "right" in detected_objects.keys():
+          response.res = "right"
+          #self.get_logger().info(f"Обнаружен знак Поворот Направо на расстоянии = {detected_objects['right']}")                  
+
+      if "aruco" in detected_objects.keys():         
+         # self.get_logger().info(f"Обнаружен Aruco-маркер на расстоянии = {detected_objects['aruco']}")             
+          # if detected_objects['aruco'] < 11:
+          response.res = "aruco"
+          return response
+      
+      # if len(detected_objects.keys()) > 1:          
+      #     min_dist_key = list(detected_objects.keys())[0]
+      #     min_dist = list(detected_objects.values())[0][0]
+      #     for key, val in detected_objects.items():                
+      #         if sorted(val)[0] < min_dist:
+      #             min_dist = sorted(val)[0]
+      #             min_dist_key = key
+          
+      #     response.res = min_dist_key
+      #     self.last_detected_sign = min_dist_key
+      
+      # if len(detected_objects.keys()) == 1:          
+      #     response.res = list(detected_objects.keys())[0]
+      #     self.last_detected_sign = list(detected_objects.keys())[0]
+
+
+
+    #   if "traffic_light" in detected_objects.keys():          
+    #       self.get_logger().info(f"Обнаружен красный сигнал светофора на расстоянии = {detected_objects['traffic_light']}") 
+    #       if detected_objects['traffic_light'] < 11:
+    #           response.res = "traffic_light"                
+
+    #           self.detected_traffic_light = True
+    #           return response    
+    #   elif self.detected_traffic_light:
+    #       self.detected_traffic_light = False
+    #       response.res = self.last_detected_sign
+              
       return response
    
   def listener_callback(self, data):
     """
     Callback function.
     """
-    # Display the message on the console
-    # self.get_logger().info('Receiving video frame')
+    # Display the message on the console    
  
     # Convert ROS Image message to OpenCV image
     current_frame = self.br.imgmsg_to_cv2(data)    
-    
-   
-    self.last_images.append( current_frame )
-    if len(self.last_images) > 20:
-      self.last_images.pop(0)
+       
+    self.last_image = current_frame
+
+    # self.last_images.append( current_frame )    
+    # if len(self.last_images) > 20:
+    #   self.last_images.pop(0)
 
     # Display image
     cv2.imshow("camera", cv2.cvtColor(current_frame, cv2.COLOR_BGR2RGB))    

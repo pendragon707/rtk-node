@@ -26,10 +26,7 @@ class Detector:
                  lower : np.ndarray, 
                  upper : np.ndarray, 
                  lower2 : Optional[np.ndarray] = None, 
-                 upper2 : Optional[np.ndarray] = None):    
-        
-        if self.config.detect_tl:
-            return cv2_image, None
+                 upper2 : Optional[np.ndarray] = None):                   
                    
         hsv = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2HSV)
         
@@ -64,74 +61,48 @@ class Detector:
         img = cv2.medianBlur(res, 5)
         ccimg = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
         cimg = cv2.cvtColor(ccimg, cv2.COLOR_BGR2GRAY)
-        # я игнорирую красные круги вне диапазона радиусов 20-30 ?
+        
         circles = cv2.HoughCircles(cimg, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=30, minRadius=self.config.light_minRadius, maxRadius=self.config.light_maxRadius)
         # circles = cv2.HoughCircles(cimg, cv2.HOUGH_GRADIENT, 1, 80,
         #                        param1=50, param2=10, minRadius=20, maxRadius=30)
     
         if circles is not None:            
-            circles = np.uint16(np.around(circles))
-            # best_area = 0
+            circles = np.uint16(np.around(circles))   
+            pers = []         
             for i in circles[0, :]:
                 cv2.circle(cimg, (i[0], i[1]), i[2], (0, 255, 0), 2)
                 cv2.circle(cimg, (i[0], i[1]), 2, (0, 0, 255), 3)
 
-            # cv2.imshow('detected circles', cimg)
-            # cv2.imshow('res', res)
-            return 20 # TEMP                        
-            
-        # cv2.imshow('detected circles', cimg)
-        # cv2.imshow('res', res)
+                light_perimeter = 2*math.pi*(i[2]**2)   
+                pers.append(light_perimeter)
+            l_per = max(pers)
+            bad_distance =  (self.config.traffic_light_perimeter*self.config.focal_length) / l_per
+
+            return bad_distance
         return None    
 
-
-    def detect_traffic_sign(self, image, target_size = 340) -> dict[str, float]:        
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert to RGB
-        image = cv2.resize(image, target_size)  # Resize to target size
-        image = image / 255.0  # Normalize pixel values to [0, 1]
-
+    def detect_traffic_sign(self, image, target_size = 340) -> dict[str, float]:                
         output = self.sign_detector.predict( image, self.config.focal_length, self.config.traffic_sign_perimeter )
         return output  # -> {"left": [3.1, 5.4], "right": 7.1}
                                     
-
-    def detect_road_line(self):
-        pass
-
-
-    # def detect_aruco(self, image, newcameramtx, dst, mtx, dist, draw=True) -> float:
+   
     def detect_aruco(self, image, draw=True) -> float:
         """ 
         ArUco маркер цифра 1 
         """
-        frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # frame = resize(frame, (200, 200))
-        # image = (image - self.mean) / self.std
-        # image = np.transpose(image, [2, 0, 1])        
+        # frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)       
 
-        markerCorners, markerIds, rejectedCandidates = self.detector.detectMarkers(frame)
+        markerCorners, markerIds, rejectedCandidates = self.detector.detectMarkers(image)
         if markerIds is not None:            
-            # rvecs, tvecs, trash = my_estimatePoseSingleMarkers(markerCorners, 5.3, newcameramtx, dist)
-            # distance = math.sqrt(tvecs[0][0]**2 + tvecs[0][1]**2 + tvecs[0][2]**2)
-
             aruco_perimeter = cv2.arcLength(markerCorners[0], True)
             bad_distance =  (self.config.aruco_perimeter*self.config.focal_length) / aruco_perimeter
-
-            # for idx in range(len(markerIds)):
-            #     if draw:
-            #         cv2.drawFrameAxes(dst, mtx, dist, rvecs[idx], tvecs[idx], 5)
-            #     print('marker id:%d, pos_x = %f,pos_y = %f, pos_z = %f' % (markerIds[idx], tvecs[idx][0], tvecs[idx][1], tvecs[idx][2]))
-
             if draw:
-                # cv2.aruco.drawDetectedMarkers(dst, markerCorners, markerIds)        
-                # cv2.imshow('detect', dst)
                 cv2.aruco.drawDetectedMarkers(image, markerCorners, markerIds)                       
-                # cv2.imshow('detect', image)
 
             return bad_distance
         return None
 
-
-    # def get_objects(self, image, newcameramtx, dst, mtx, dist) -> dict[str, float]:
+    
     def get_objects(self, image) -> dict[str, float]:
         """ 
         Возваращает словарь с названиями Обнаруженных объектов и расстояниями до них
@@ -139,26 +110,55 @@ class Detector:
 
         objects = {}
 
-        # aruco = self.detect_aruco(image, newcameramtx, dst, mtx, dist)
-        aruco = self.detect_aruco(image)
+        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) 
+        
+        aruco = self.detect_aruco(rgb_image)
         if aruco is not None:                            
-            objects["aruco"] = aruco        
-
-        # у нас может быть список сразу из нескольких одинаковых / разных знаков !  
-        traffic_signs = self.detect_traffic_sign(image)
+            objects["aruco"] = aruco                 
+        
+        traffic_signs = self.detect_traffic_sign(rgb_image)
         if traffic_signs is not None:                
-            objects.update(traffic_signs)
+            objects.update(traffic_signs)             
                 
         roi, mask = self.get_red_mask(image)
         distance_red = self.detect_red(roi)
         if distance_red is not None:
-            objects["traffic_light"] = distance_red
+            objects["traffic_light"] = distance_red             
 
         return objects
 
 def main():
-    detector = Detector()
-    print( detector.get_objects() )
+    detector = Detector()    
+
+    cap = cv2.VideoCapture(0)      # -> BGR format
+    cap.set(cv2.CAP_PROP_FPS,32)   
+
+    while cap.isOpened(): 
+        cv2.startWindowThread()
+        cv2.namedWindow("preview")
+
+        success, image = cap.read()  
+        cv2.imshow('raw',image)  
+        
+        detected_objects = detector.get_objects(image)
+        print(detected_objects)
+
+        if len(detected_objects.keys()) > 1:
+            min_dist_key = list(detected_objects.keys())[0]
+            min_dist = list(detected_objects.values())[0][0]
+            for key, val in detected_objects.items():                
+                if sorted(val)[0] < min_dist:
+                    min_dist = sorted(val)[0]
+                    min_dist_key = key
+
+            print(min_dist_key)
+
+        condition = cv2.waitKey(10) & 0xFF
+        if condition in {ord("q"), ord("Q"), 27}:                
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
